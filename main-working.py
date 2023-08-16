@@ -1,19 +1,15 @@
 import network
-import hashlib
-import ntptime
+import mytime as ntptime
 from machine import RTC, Timer
 import wifimgr
 import time
-import urequests
 import tft_config
 import st7789
 import romans as script_font
 import display_helpers as dh
+import server_tools
 
-NTP_TO_GMT = 946684800  # needed to convert ntptime.time() to normal UNIX timestamp
-
-INIT_URL = "https://app.thequietworkplace.com/api/external/init"
-DISPLAY_URL = "https://app.thequietworkplace.com/api/external/room/display"
+NTP_TO_UNIX = 946684800  # needed to convert ntptime.time() to normal UNIX timestamp
 
 NTP_UPDATE_PERIOD = 3600 * 1000 * 6  # milliseconds in an hour * hours
 RES_UPDATE_PERIOD = 1000 * 15  # milliseconds in 15 seconds
@@ -37,40 +33,16 @@ tft.offset(1, 35)  # offset for config 1
 tft.fill(st7789.color565(48, 89, 151))
 
 
-def update_ntptime():
+def update_ntptime(t):
     try:
         ntptime.settime()
-        return None
+        print("Attempted ntp update")
     except OSError as e:
         print(f"Time update error: {e}")  # add to display
 
 
-def build_init_headers():
-    device_id = wlan.config('mac').hex()
-    pin = hashlib.sha1(device_id).digest().hex()
-    device_type = "unit_display"
-    return {"device-id": device_id, "pin": pin, "device-type": device_type}
-
-
-def print_resp_info(resp):
-    print(f"Status code: {resp.status_code}")
-    print(f"Resp text: {resp.text}")
-    dh.draw_multiline_text(tft, script_font, (f"Status code: {resp.status_code}", f"Resp text: {resp.text}"))
-    time.sleep(2)
-
-
-def build_display_headers():
-    device_id = wlan.config('mac').hex()
-    pin = hashlib.sha1(device_id).digest().hex()
-    return {"device-id": device_id, "pin": pin}
-
-
-def callback_ntp_update(t):
-    ntptime.settime()
-
-
 def current_epoch():
-    return ntptime.time() + NTP_TO_GMT
+    return time.time() + NTP_TO_UNIX
 
 
 # Config wifi
@@ -81,33 +53,35 @@ if wlan_sta is not None:
         dh.draw_multiline_text(tft, script_font, ("Connecting to:", f"{wlan_sta.config('ssid')}"))
 
     dh.draw_multiline_text(tft, script_font, ("Connected to:", f"{wlan_sta.config('ssid')}"))
+    time.sleep(2)
 else:
     print("Unable to connect to wifi")
     print("Please check wifi credentials")
-    dh.draw_multiline_text(tft, script_font, ("No wifi", "Check credentials"))
-
-time.sleep(2)
+    dh.draw_multiline_text(tft, script_font,
+                           ("No wifi", "Check credentials"))  # refactor to print expected wifi networks
+    while True:
+        pass  # hang on inability to connect
 
 # Update time
-if rtc.datetime()[0] < 2023:
-    for _ in range(3):
-        update_ntptime()
+if rtc.datetime()[0] < 2023:  # indicates unsuccessful update
+    while True:
+        update_ntptime("")
         if rtc.datetime()[0] >= 2023:
             break
-        time.sleep(1)
-print(rtc.datetime())
+        time.sleep(10)
+
+print(f"Current rtc info: {rtc.datetime()}")
 
 tm = rtc.datetime()
-dh.draw_multiline_text(tft, script_font, (f"Date: {tm[1]}/{tm[2]}/{tm[0]}", f"Time: {tm[4]}:{tm[5]}:{tm[6]}"))
+dh.draw_multiline_text(tft, script_font, (f"Date: {tm[1]}/{tm[2]}/{tm[0]}", f"Time (Z): {tm[4]}:{tm[5]}"))
 time.sleep(3)
 
 # Register with server
-init_headers = build_init_headers()
+code, payload = server_tools.register_device()
 
-init_resp = urequests.get(INIT_URL, headers=init_headers)
+print(f"Init reg resp: {code}")
 
-if init_resp.status_code == 200:
-    payload = init_resp.json()  # {"room_id":"5552f269-e0c3-4a39-8f40-4f7a3ead3887","display":"Q1","offset":240}
+if code == 200:
     room_id = payload["room_id"]
     unit_name = payload["display"]
     time_offset = payload["offset"]
@@ -117,28 +91,22 @@ if init_resp.status_code == 200:
     tft.fill(BLACK)
 else:
     while True:
-        reg_resp = urequests.get(INIT_URL, headers=init_headers)
+        code, payload = server_tools.register_device()
 
-        print(reg_resp.status_code)
-
-        if reg_resp.status_code == 201 or init_resp.status_code == 401:
-            # init registration successful / pending allocation
-            print("Registered. Please assign to unit in admin portal.")
+        if code in (201, 401):
             dh.draw_multiline_text(tft, script_font, ("Registered as:", f"{wlan.config('mac').hex()}"))
-        elif reg_resp.status_code == 200:
+        elif code == 200:
             break
         else:
-            print("Please contact manufacturer.")
-            dh.draw_multiline_text(tft, script_font, ("Please contact:", "manufacturer"))
+            dh.draw_multiline_text(tft, script_font, ("Please contact", "manufacturer"))
 
-        time.sleep(60)
+        time.sleep(30)
 
 tft.deinit()
 
 timer_ntp = Timer(0)
-timer_ntp.init(mode=Timer.PERIODIC, period=NTP_UPDATE_PERIOD, callback=callback_ntp_update)
+timer_ntp.init(mode=Timer.PERIODIC, period=NTP_UPDATE_PERIOD, callback=update_ntptime)
 
-display_headers = build_display_headers()
 last_check = 0
 
 res_end = -1  # set to
@@ -148,11 +116,11 @@ while True:
     _, _, _, _, hr, mins, _, _ = rtc.datetime()  # (year, month, day, weekday, hours, minutes, seconds, subseconds)
     # check for an active reservation
     if mins in RESERVATION_CHECK_MINUTES and time.ticks_diff(time.ticks_ms(), last_check) > RESERVATION_CHECK_LOCKOUT:
-        display_resp = urequests.get(DISPLAY_URL, headers=display_headers)
-        if display_resp.status_code == 200:
+        code, payload = server_tools.check_reservation()
+        if code == 200:
             last_check = time.ticks_ms()
-            print(f"Periodic check result: {display_resp.text}")
-            res_end = display_resp.json()["end"]
+            print(f"Periodic check result: {payload}")
+            res_end = payload["end"]
             if res_end >= 0:  # -1 is value if no reservation exists
                 active_reservation = True
         else:
@@ -165,38 +133,40 @@ while True:
     if active_reservation and res_end - current_epoch() < 330:  # verify units and math associated with this 5.5 minutes
         tft.init()
 
-        # TODO: Update display for 5 minutes remaining
+        # Update display inside for 5.5 minutes remaining
         while True:
             time_left = res_end - current_epoch()  # in seconds
             if time_left <= 0 and active_reservation:
                 print("Please leave the space.")
                 print("Draw red screen.")
                 dh.draw_multiline_text(tft, script_font, ("Please", "Checkout"), fill=RED)
-                display_resp = urequests.get(DISPLAY_URL, headers=display_headers)
-                if display_resp.status_code == 200:
-                    if display_resp.json()["end"] == -1:
+                code, payload = server_tools.check_reservation()
+                if code == 200:
+                    if payload["end"] == -1:
                         active_reservation = False
+                        tft.fill(st7789.BLACK)
                         break
                     else:
-                        res_end = display_resp.json()["end"]
+                        res_end = payload["end"]
                 time.sleep(30)  # prevents constant ping of server when not checked out
             elif 50 < (time_left % 60) < 60:
                 print(f"Draw display with {time_left // 60} bars")
                 dh.draw_bars(tft, time_left // 60)
-                display_resp = urequests.get(DISPLAY_URL, headers=display_headers)
-                if display_resp.status_code == 200:
-                    if display_resp.json()["end"] == -1:
+                code, payload = server_tools.check_reservation()
+                if code == 200:
+                    if payload["end"] == -1:
                         active_reservation = False
                         break
                     else:
-                        res_end = display_resp.json()["end"]
+                        res_end = payload["end"]
                 time.sleep(10)  # prevents multiple calls to server at rollover of minute
             elif 28 < (time_left % 60) < 32 or 13 < (time_left % 60) < 17:
-                display_resp = urequests.get(DISPLAY_URL, headers=display_headers)
-                if display_resp.status_code == 200:
-                    if display_resp.json()["end"] == -1:
+                code, display = server_tools.check_reservation()
+                if code == 200:
+                    if payload["end"] == -1:
                         active_reservation = False
+                        tft.fill(st7789.BLACK)
                         break
                     else:
-                        res_end = display_resp.json()["end"]
+                        res_end = payload["end"]
         tft.deinit()
