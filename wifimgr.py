@@ -1,5 +1,4 @@
 import network
-import socket
 import ure
 import time
 
@@ -42,13 +41,11 @@ def get_connection():
                     connected = do_connect(ssid, password)
                 else:
                     print("skipping unknown encrypted network")
-            else:  # open
-                connected = do_connect(ssid, None)
             if connected:
                 break
 
     except OSError as e:
-        print("exception", str(e))
+        print("exception", e)
 
     return wlan_sta if connected else None
 
