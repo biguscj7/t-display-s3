@@ -133,6 +133,8 @@ while True:
     if active_reservation and res_end - current_epoch() < 330:  # verify units and math associated with this 5.5 minutes
         tft.init()
 
+        # TODO: Handle potential situation where a delayed checkout doesn't get checked/cleared before someone else\\
+        #  checks in
         # Update display inside for 5.5 minutes remaining
         while True:
             time_left = res_end - current_epoch()  # in seconds
@@ -160,6 +162,7 @@ while True:
                 if code == 200:
                     if payload["end"] == -1:
                         active_reservation = False
+                        tft.fill(BLACK)
                         break
                     else:
                         res_end = payload["end"]
