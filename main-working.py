@@ -14,7 +14,7 @@ NTP_TO_UNIX = 946684800  # needed to convert ntptime.time() to normal UNIX times
 NTP_UPDATE_PERIOD = 3600 * 1000 * 6  # milliseconds in an hour * hours
 RES_UPDATE_PERIOD = 1000 * 15  # milliseconds in 15 seconds
 
-RESERVATION_CHECK_MINUTES = (9, 24, 39, 54, 37, 38, 39)
+RESERVATION_CHECK_MINUTES = (9, 24, 39, 54)
 RESERVATION_CHECK_LOCKOUT = 60000
 
 QW_BLUE = st7789.color565(48, 89, 151)
@@ -136,7 +136,7 @@ while True:
         # Update display inside for 5.5 minutes remaining
         while True:
             time_left = res_end - current_epoch()  # in seconds
-            if time_left <= 0 and active_reservation:
+            if time_left <= -30 and active_reservation:
                 print("Please leave the space.")
                 print("Draw red screen.")
                 dh.draw_multiline_text(tft, script_font, ("Please", "Checkout"), fill=RED)
@@ -144,14 +144,18 @@ while True:
                 if code == 200:
                     if payload["end"] == -1:
                         active_reservation = False
-                        tft.fill(st7789.BLACK)
+                        tft.fill(BLACK)
                         break
                     else:
                         res_end = payload["end"]
                 time.sleep(30)  # prevents constant ping of server when not checked out
+            elif -30 < time_left <= 0:
+                print("Buffer of 30 seconds before red flash")
+                tft.fill(QW_BLUE)
+                time.sleep(30)
             elif 50 < (time_left % 60) < 60:
-                print(f"Draw display with {time_left // 60} bars")
-                dh.draw_bars(tft, time_left // 60)
+                print(f"Draw display with {(time_left // 60) + 1} bars")
+                dh.draw_bars(tft, (time_left // 60) + 1)
                 code, payload = server_tools.check_reservation()
                 if code == 200:
                     if payload["end"] == -1:

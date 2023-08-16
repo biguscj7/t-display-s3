@@ -37,10 +37,10 @@ def compute_centering_x(text_len):
 
 
 def draw_bars(tft, num_bars):
-    tft.fill(st7789.color565(48, 89, 151))
+    tft.fill(QW_BLUE)
     for x, h in BARS[0:num_bars]:
         print("Add rect at: " + str(x) + ", " + str(15) + " height: " + str(h))
-        tft.fill_rect(x, (150 - h), 49, h, st7789.WHITE)
+        tft.fill_rect(x, (150 - h), 49, h, WHITE)
     time.sleep(1)
 
 
