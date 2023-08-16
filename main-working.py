@@ -30,7 +30,7 @@ tft = tft_config.config(1)
 tft.init()
 tft.offset(1, 35)  # offset for config 1
 
-tft.fill(st7789.color565(48, 89, 151))
+tft.fill(QW_BLUE)
 
 
 def update_ntptime(t):
@@ -169,7 +169,7 @@ while True:
                 if code == 200:
                     if payload["end"] == -1:
                         active_reservation = False
-                        tft.fill(st7789.BLACK)
+                        tft.fill(BLACK)
                         break
                     else:
                         res_end = payload["end"]
