@@ -74,7 +74,7 @@ print(f"Current rtc info: {rtc.datetime()}")
 
 tm = rtc.datetime()
 dh.draw_multiline_text(tft, script_font, (f"Date: {tm[1]}/{tm[2]}/{tm[0]}", f"Time (Z): {tm[4]}:{tm[5]}"))
-time.sleep(3)
+time.sleep(2)
 
 # Register with server
 code, payload = server_tools.register_device()
@@ -87,7 +87,7 @@ if code == 200:
     time_offset = payload["offset"]
 
     dh.draw_multiline_text(tft, script_font, (f"Unit name: {unit_name}",))
-    time.sleep(15)
+    time.sleep(5)
     tft.fill(BLACK)
 else:
     while True:
@@ -115,7 +115,8 @@ active_reservation = False
 while True:
     _, _, _, _, hr, mins, _, _ = rtc.datetime()  # (year, month, day, weekday, hours, minutes, seconds, subseconds)
     # check for an active reservation
-    if mins in RESERVATION_CHECK_MINUTES and time.ticks_diff(time.ticks_ms(), last_check) > RESERVATION_CHECK_LOCKOUT:
+    if (mins in RESERVATION_CHECK_MINUTES and time.ticks_diff(time.ticks_ms(),
+                                                              last_check) > RESERVATION_CHECK_LOCKOUT) or last_check == 0:
         code, payload = server_tools.check_reservation()
         if code == 200:
             last_check = time.ticks_ms()
