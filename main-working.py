@@ -55,8 +55,7 @@ if wlan_sta is not None:
     dh.draw_multiline_text(tft, script_font, ("Connected to:", f"{wlan_sta.config('ssid')}"))
     time.sleep(2)
 else:
-    print("Unable to connect to wifi")
-    print("Please check wifi credentials")
+    print("Unable to connect to wifi. Check credentials")
     dh.draw_multiline_text(tft, script_font,
                            ("No wifi", "Check credentials"))  # refactor to print expected wifi networks
     while True:
@@ -72,14 +71,14 @@ if rtc.datetime()[0] < 2023:  # indicates unsuccessful update
 
 print(f"Current rtc info: {rtc.datetime()}")
 
-tm = rtc.datetime()
+tm = time.gmtime()
 dh.draw_multiline_text(tft, script_font, (f"Date: {tm[1]}/{tm[2]}/{tm[0]}", f"Time (Z): {tm[4]}:{tm[5]}"))
 time.sleep(2)
 
 # Register with server
 code, payload = server_tools.register_device()
 
-print(f"Init reg resp: {code}")
+print(f"Registration response code: {code}")
 
 if code == 200:
     room_id = payload["room_id"]
@@ -113,7 +112,7 @@ res_end = -1  # set to
 active_reservation = False
 
 while True:
-    _, _, _, _, hr, mins, _, _ = rtc.datetime()  # (year, month, day, weekday, hours, minutes, seconds, subseconds)
+    _, _, _, _, hr, mins, _, _ = time.gmtime()  # (year, month, day, weekday, hours, minutes, seconds, subseconds)
     # check for an active reservation
     if (mins in RESERVATION_CHECK_MINUTES and time.ticks_diff(time.ticks_ms(),
                                                               last_check) > RESERVATION_CHECK_LOCKOUT) or last_check == 0:
@@ -126,13 +125,14 @@ while True:
                 active_reservation = True
         else:
             print("Error connecting to server")  # Update display if it errors out?
-            time.sleep_ms(500)  # don't constantly try to ping the server
+            time.sleep(5)  # don't constantly try to ping the server
 
     # reservation end {'end': 1691772300} - this payload was for GMT checkout time
 
     # TODO: Add checking within loop to break out if reservation is extended (not needed now)
     if active_reservation and res_end - current_epoch() < 330:  # verify units and math associated with this 5.5 minutes
         tft.init()
+        print("Entering active res loop")
 
         # TODO: Handle potential situation where a delayed checkout doesn't get checked/cleared before someone else\\
         #  checks in
@@ -140,7 +140,6 @@ while True:
         while True:
             time_left = res_end - current_epoch()  # in seconds
             if time_left <= -30 and active_reservation:
-                print("Please leave the space.")
                 print("Draw red screen.")
                 dh.draw_multiline_text(tft, script_font, ("Please", "Checkout"), fill=RED)
                 code, payload = server_tools.check_reservation()
@@ -177,4 +176,5 @@ while True:
                         break
                     else:
                         res_end = payload["end"]
+
         tft.deinit()

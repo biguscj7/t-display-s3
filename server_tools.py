@@ -12,6 +12,7 @@ def build_init_headers():
     device_id = wlan.config('mac').hex()
     pin = hashlib.sha1(device_id).digest().hex()
     device_type = "unit_display"
+    print(f"device-id: {device_id}\npin: {pin}")
     return {"device-id": device_id, "pin": pin, "device-type": device_type}
 
 
