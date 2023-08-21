@@ -1,6 +1,6 @@
 import network
 import mytime as ntptime
-from machine import RTC, Timer
+from machine import RTC, Timer, reset
 import wifimgr
 import time
 import tft_config
@@ -69,10 +69,10 @@ if rtc.datetime()[0] < 2023:  # indicates unsuccessful update
             break
         time.sleep(10)
 
-print(f"Current rtc info: {rtc.datetime()}")
+print(f"Current time info: {time.gmtime()}")
 
 tm = time.gmtime()
-dh.draw_multiline_text(tft, script_font, (f"Date: {tm[1]}/{tm[2]}/{tm[0]}", f"Time (Z): {tm[4]}:{tm[5]}"))
+dh.draw_multiline_text(tft, script_font, (f"Date: {tm[1]}/{tm[2]}/{tm[0]}", f"Time (Z): {tm[3]}:{tm[4]}"))
 time.sleep(2)
 
 # Register with server
@@ -112,10 +112,15 @@ res_end = -1  # set to
 active_reservation = False
 
 while True:
-    _, _, _, _, hr, mins, _, _ = time.gmtime()  # (year, month, day, weekday, hours, minutes, seconds, subseconds)
+    _, _, _, hr, mins, sec, _, _ = time.gmtime()  # (2023, 8, 21, 18, 42, 41, 0, 233)
     # check for an active reservation
+    if hr == 2 and mins == 0 and 0 < sec < 10:
+        print("doing a reset")
+        reset()
+
     if (mins in RESERVATION_CHECK_MINUTES and time.ticks_diff(time.ticks_ms(),
                                                               last_check) > RESERVATION_CHECK_LOCKOUT) or last_check == 0:
+        print(f"Hours: {hr}\nMinutes:{mins}")
         code, payload = server_tools.check_reservation()
         if code == 200:
             last_check = time.ticks_ms()
@@ -123,6 +128,7 @@ while True:
             res_end = payload["end"]
             if res_end >= 0:  # -1 is value if no reservation exists
                 active_reservation = True
+                time_left = res_end - current_epoch()  # in seconds
         else:
             print("Error connecting to server")  # Update display if it errors out?
             time.sleep(5)  # don't constantly try to ping the server
@@ -138,43 +144,30 @@ while True:
         #  checks in
         # Update display inside for 5.5 minutes remaining
         while True:
+            if (44 < (time_left % 60) < 46) or (29 < (time_left % 60) < 31) or (14 < (time_left % 60) < 16):
+                print("Pinging server on the 15 second interval.")
+                code, payload = server_tools.check_reservation()
+                if code == 200:
+                    if payload["end"] == -1:
+                        active_reservation = False
+                        tft.fill(BLACK)
+                        break
+                    else:
+                        res_end = payload["end"]
             time_left = res_end - current_epoch()  # in seconds
+
             if time_left <= -30 and active_reservation:
                 print("Draw red screen.")
                 dh.draw_multiline_text(tft, script_font, ("Please", "Checkout"), fill=RED)
-                code, payload = server_tools.check_reservation()
-                if code == 200:
-                    if payload["end"] == -1:
-                        active_reservation = False
-                        tft.fill(BLACK)
-                        break
-                    else:
-                        res_end = payload["end"]
-                time.sleep(30)  # prevents constant ping of server when not checked out
+                time.sleep(5)
             elif -30 < time_left <= 0:
                 print("Buffer of 30 seconds before red flash")
                 tft.fill(QW_BLUE)
-                time.sleep(30)
-            elif 50 < (time_left % 60) < 60:
+                time.sleep(5)
+            elif 55 < (time_left % 60) < 60:
                 print(f"Draw display with {(time_left // 60) + 1} bars")
                 dh.draw_bars(tft, (time_left // 60) + 1)
-                code, payload = server_tools.check_reservation()
-                if code == 200:
-                    if payload["end"] == -1:
-                        active_reservation = False
-                        tft.fill(BLACK)
-                        break
-                    else:
-                        res_end = payload["end"]
-                time.sleep(10)  # prevents multiple calls to server at rollover of minute
-            elif 28 < (time_left % 60) < 32 or 13 < (time_left % 60) < 17:
-                code, display = server_tools.check_reservation()
-                if code == 200:
-                    if payload["end"] == -1:
-                        active_reservation = False
-                        tft.fill(BLACK)
-                        break
-                    else:
-                        res_end = payload["end"]
+                time.sleep(5)
 
+        print("Deinit display")
         tft.deinit()
