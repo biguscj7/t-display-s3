@@ -5,9 +5,10 @@ import time
 NETWORK_PROFILES = 'data.txt'
 
 wlan_sta = network.WLAN(network.STA_IF)
+wlan_sta.active(True)
+wlan_sta.config(reconnects=2)
 
 server_socket = None
-
 
 def get_connection():
     """return a working WLAN(STA_IF) instance or None"""
@@ -38,7 +39,7 @@ def get_connection():
             if encrypted:
                 if ssid in profiles:
                     password = profiles[ssid]
-                    connected = do_connect(ssid, password)
+                    connected = do_connect(ssid, password, bssid)
                 else:
                     print("skipping unknown encrypted network")
             if connected:
@@ -60,7 +61,7 @@ def read_profiles():
     return profiles
 
 
-def do_connect(ssid, password):
+def do_connect(ssid, password, bssid):
     wlan_sta.active(True)
     if wlan_sta.isconnected():
         return None
@@ -69,15 +70,13 @@ def do_connect(ssid, password):
 
     wlan_sta.disconnect()
 
-    wlan_sta.connect(ssid, password)
-    for retry in range(100):
-        connected = wlan_sta.isconnected()
-        if connected:
-            break
+    wlan_sta.connect(ssid, password, bssid=bssid)
+    while wlan_sta.status() == network.STAT_CONNECTING:
         time.sleep(0.1)
         print('.', end='')
-    if connected:
+
+    if wlan_sta.isconnected():
         print('\nConnected. Network config: ', wlan_sta.ifconfig())
     else:
         print('\nFailed. Not Connected to: ' + ssid)
-    return connected
+    return wlan_sta.isconnected()
