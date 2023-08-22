@@ -52,7 +52,7 @@ if wlan_sta is not None:
     while not wlan_sta.isconnected():
         dh.draw_multiline_text(tft, script_font, ("Connecting to:", f"{wlan_sta.config('ssid')}"))
 
-    dh.draw_multiline_text(tft, script_font, ("Connected to:", f"{wlan_sta.config('ssid')}"))
+    dh.draw_multiline_text(tft, script_font, ("Connected to:", f"{wlan_sta.config('ssid')}", f"Signal str: {wlan_sta.status('rssi')}"))
     time.sleep(2)
 else:
     print("Unable to connect to wifi. Check credentials")
@@ -72,7 +72,8 @@ if rtc.datetime()[0] < 2023:  # indicates unsuccessful update
 print(f"Current time info: {time.gmtime()}")
 
 tm = time.gmtime()
-dh.draw_multiline_text(tft, script_font, (f"Date: {tm[1]}/{tm[2]}/{tm[0]}", f"Time (Z): {tm[3]}:{tm[4]}"))
+dh.draw_multiline_text(tft, script_font, (f"Date: {tm[1]}/{tm[2]}/{tm[0]}", f"Time (Z): {tm[3]}:{tm[4]}"),
+                       start_scale=1.75)
 time.sleep(2)
 
 # Register with server
@@ -130,10 +131,10 @@ while True:
                 active_reservation = True
                 time_left = res_end - current_epoch()  # in seconds
         else:
-            print("Error connecting to server")  # Update display if it errors out?
+            print("----------Error checking reservation--------------")
+            print(f"Server code: {code}")
+            print(f"Server text: {payload}")
             time.sleep(5)  # don't constantly try to ping the server
-
-    # reservation end {'end': 1691772300} - this payload was for GMT checkout time
 
     # TODO: Add checking within loop to break out if reservation is extended (not needed now)
     if active_reservation and res_end - current_epoch() < 330:  # verify units and math associated with this 5.5 minutes
@@ -150,10 +151,14 @@ while True:
                 if code == 200:
                     if payload["end"] == -1:
                         active_reservation = False
+                        print("Blanking and deinit display.")
                         tft.fill(BLACK)
+                        tft.deinit()
                         break
                     else:
                         res_end = payload["end"]
+                elif code == 999:
+                    print(f"Error in active loop call: {payload}")
             time_left = res_end - current_epoch()  # in seconds
 
             if time_left <= -30 and active_reservation:
@@ -168,6 +173,3 @@ while True:
                 print(f"Draw display with {(time_left // 60) + 1} bars")
                 dh.draw_bars(tft, (time_left // 60) + 1)
                 time.sleep(5)
-
-        print("Deinit display")
-        tft.deinit()

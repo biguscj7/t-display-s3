@@ -38,8 +38,16 @@ def register_device():
 
 def check_reservation():
     res_headers = build_reservation_headers()
-    res_resp = urequests.get(DISPLAY_URL, headers=res_headers)
-    if res_resp.status_code == 200:
-        return res_resp.status_code, res_resp.json()
-    else:
-        return res_resp.status_code, res_resp.text
+    try:
+        res_resp = urequests.get(DISPLAY_URL, headers=res_headers)
+
+        if res_resp.status_code == 200:
+            return res_resp.status_code, res_resp.json()
+        else:
+            return res_resp.status_code, res_resp.text
+    except OSError as e:
+        print(f"Check reservation call error: {e}")
+        return 999, f"Error: {e}"
+
+
+

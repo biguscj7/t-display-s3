@@ -21,7 +21,7 @@ def dynamic_line(tft, font, line_text, scale_factor):
         return line_text, scale_factor, start_len
     else:
         for j in range(5):
-            scale_factor += -0.25
+            scale_factor -= 0.25
             scaled_len = tft.draw_len(font, line_text, scale_factor)
             if scaled_len <= (DISPLAY_WIDTH - WIDTH_BUFFER):
                 return line_text, scale_factor, scaled_len
@@ -44,12 +44,12 @@ def draw_bars(tft, num_bars):
     time.sleep(1)
 
 
-def draw_multiline_text(tft, script_font, text_lines, fill=QW_BLUE):
+def draw_multiline_text(tft, script_font, text_lines, fill=QW_BLUE, start_scale=2.0):
     if fill:
         tft.fill(fill)
 
     line_y = (25, 70, 120) if len(text_lines) == 3 else (50, 110)
     for idx, line in enumerate(text_lines):
-        text, scale_factor, text_len = dynamic_line(tft, script_font, line, 2.0)
+        text, scale_factor, text_len = dynamic_line(tft, script_font, line, start_scale)
         first_line_x = compute_centering_x(text_len)
         tft.draw(script_font, text, first_line_x, line_y[idx], st7789.WHITE, scale_factor)
