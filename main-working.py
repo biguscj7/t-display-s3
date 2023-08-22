@@ -22,7 +22,6 @@ BLACK = st7789.BLACK
 WHITE = st7789.WHITE
 RED = st7789.RED
 
-wlan = network.WLAN(network.STA_IF)
 rtc = RTC()
 
 tft = tft_config.config(1)
@@ -49,9 +48,6 @@ def current_epoch():
 wlan_sta = wifimgr.get_connection()
 
 if wlan_sta is not None:
-    while not wlan_sta.isconnected():
-        dh.draw_multiline_text(tft, script_font, ("Connecting to:", f"{wlan_sta.config('ssid')}"))
-
     dh.draw_multiline_text(tft, script_font, ("Connected to:", f"{wlan_sta.config('ssid')}", f"Signal str: {wlan_sta.status('rssi')}"))
     time.sleep(2)
 else:
@@ -87,6 +83,7 @@ if code == 200:
     time_offset = payload["offset"]
 
     dh.draw_multiline_text(tft, script_font, (f"Unit name: {unit_name}",))
+    print(f"Unit name: {unit_name}")
     time.sleep(5)
     tft.fill(BLACK)
 else:
@@ -94,7 +91,7 @@ else:
         code, payload = server_tools.register_device()
 
         if code in (201, 401):
-            dh.draw_multiline_text(tft, script_font, ("Registered as:", f"{wlan.config('mac').hex()}"))
+            dh.draw_multiline_text(tft, script_font, ("Registered as:", f"{wlan_sta.config('mac').hex()}"))
         elif code == 200:
             break
         else:
@@ -161,10 +158,9 @@ while True:
                     print(f"Error in active loop call: {payload}")
             time_left = res_end - current_epoch()  # in seconds
 
-            if time_left <= -30 and active_reservation:
+            if -32 <= time_left <= -30 and active_reservation:
                 print("Draw red screen.")
                 dh.draw_multiline_text(tft, script_font, ("Please", "Checkout"), fill=RED)
-                time.sleep(5)
             elif -30 < time_left <= 0:
                 print("Buffer of 30 seconds before red flash")
                 tft.fill(QW_BLUE)

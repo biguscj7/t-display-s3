@@ -65,11 +65,11 @@ def do_connect(ssid, password, bssid):
     wlan_sta.active(True)
     if wlan_sta.isconnected():
         return None
-    print('Trying to connect to %s...' % ssid)
-    print("Using pw: %s" % password)
 
     wlan_sta.disconnect()
 
+    print('Trying to connect to %s...' % ssid)
+    print("Using pw: %s" % password)
     wlan_sta.connect(ssid, password, bssid=bssid)
     while wlan_sta.status() == network.STAT_CONNECTING:
         time.sleep(0.1)
