@@ -79,7 +79,7 @@ else:
 if time.gmtime()[0] < 2023:  # indicates unsuccessful update
     while True:
         update_ntptime("")
-        if time.gmtime()[0] < 2023:
+        if time.gmtime()[0] >= 2023:
             break
         time.sleep(10)
 

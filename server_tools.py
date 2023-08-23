@@ -7,7 +7,6 @@ DISPLAY_URL = "https://app.thequietworkplace.com/api/external/room/display"
 
 wlan = network.WLAN(network.STA_IF)
 
-
 device_dict = {
     "device-id": wlan.config('mac').hex(),
     "pin": hashlib.sha1(wlan.config('mac').hex()).digest().hex()
@@ -20,7 +19,7 @@ def print_resp_info(resp):
 
 
 def register_device():
-    init_headers = {**device_dict, **{"device-type": "unit_display"}}
+    init_headers = device_dict | {"device-type": "unit_display"}
     try:
         init_resp = urequests.get(INIT_URL, headers=init_headers)
 

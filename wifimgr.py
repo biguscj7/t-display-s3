@@ -3,7 +3,7 @@ import ure
 import time
 
 NETWORK_PROFILES = 'data.txt'
-HOSTNAME = "Q1-timer-display"
+HOSTNAME = "Q6-timer-display"
 
 wlan_sta = network.WLAN(network.STA_IF)
 wlan_sta.active(True)
