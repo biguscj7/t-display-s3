@@ -10,6 +10,7 @@ wlan_sta.config(reconnects=2)
 
 server_socket = None
 
+
 def get_connection():
     """return a working WLAN(STA_IF) instance or None"""
 

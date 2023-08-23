@@ -8,6 +8,9 @@ import st7789
 import romans as script_font
 import display_helpers as dh
 import server_tools
+import gc
+
+gc.collect()
 
 NTP_TO_UNIX = 946684800  # needed to convert ntptime.time() to normal UNIX timestamp
 
@@ -18,6 +21,7 @@ RESERVATION_CHECK_MINUTES = (9, 24, 39, 54)
 RESERVATION_CHECK_LOCKOUT = 60000
 
 QW_BLUE = st7789.color565(48, 89, 151)
+ORANGE = st7789.color565(255, 109, 10)
 BLACK = st7789.BLACK
 WHITE = st7789.WHITE
 RED = st7789.RED
@@ -38,17 +42,27 @@ def update_ntptime(t):
         print("Attempted ntp update")
     except OSError as e:
         print(f"Time update error: {e}")  # add to display
+        quick_display(("Failed time update", e), 1.0)
 
 
 def current_epoch():
     return time.time() + NTP_TO_UNIX
 
 
+def quick_display(lines, font_scale, color):
+    tft.init()
+    dh.draw_multiline_text(tft, script_font, lines, fill=color, start_scale=font_scale)
+    time.sleep(3)
+    tft.fill(BLACK)
+    tft.deinit()
+
+
 # Config wifi
 wlan_sta = wifimgr.get_connection()
 
 if wlan_sta is not None:
-    dh.draw_multiline_text(tft, script_font, ("Connected to:", f"{wlan_sta.config('ssid')}", f"Signal str: {wlan_sta.status('rssi')}"))
+    dh.draw_multiline_text(tft, script_font,
+                           ("Connected to:", f"{wlan_sta.config('ssid')}", f"Signal str: {wlan_sta.status('rssi')}"))
     time.sleep(2)
 else:
     print("Unable to connect to wifi. Check credentials")
@@ -109,8 +123,11 @@ last_check = 0
 res_end = -1  # set to
 active_reservation = False
 
+red_flag = False
+
 while True:
     _, _, _, hr, mins, sec, _, _ = time.gmtime()  # (2023, 8, 21, 18, 42, 41, 0, 233)
+
     # check for an active reservation
     if hr == 2 and mins == 0 and 0 < sec < 10:
         print("doing a reset")
@@ -131,15 +148,14 @@ while True:
             print("----------Error checking reservation--------------")
             print(f"Server code: {code}")
             print(f"Server text: {payload}")
-            time.sleep(5)  # don't constantly try to ping the server
+            quick_display((code, payload), 1.0, ORANGE)
 
     # TODO: Add checking within loop to break out if reservation is extended (not needed now)
     if active_reservation and res_end - current_epoch() < 330:  # verify units and math associated with this 5.5 minutes
+        gc.collect()
         tft.init()
         print("Entering active res loop")
 
-        # TODO: Handle potential situation where a delayed checkout doesn't get checked/cleared before someone else\\
-        #  checks in
         # Update display inside for 5.5 minutes remaining
         while True:
             if (44 < (time_left % 60) < 46) or (29 < (time_left % 60) < 31) or (14 < (time_left % 60) < 16):
@@ -151,21 +167,25 @@ while True:
                         print("Blanking and deinit display.")
                         tft.fill(BLACK)
                         tft.deinit()
+                        red_flag = False
                         break
                     else:
                         res_end = payload["end"]
                 elif code == 999:
                     print(f"Error in active loop call: {payload}")
+                    quick_display((code, payload), 1.0, ORANGE)
             time_left = res_end - current_epoch()  # in seconds
 
-            if -32 <= time_left <= -30 and active_reservation:
-                print("Draw red screen.")
-                dh.draw_multiline_text(tft, script_font, ("Please", "Checkout"), fill=RED)
+            if time_left <= -30 and active_reservation:
+                if not red_flag:
+                    print("Draw red screen.")
+                    dh.draw_multiline_text(tft, script_font, ("Please", "Checkout"), fill=RED)
+                red_flag = True
             elif -30 < time_left <= 0:
                 print("Buffer of 30 seconds before red flash")
                 tft.fill(QW_BLUE)
                 time.sleep(5)
-            elif 55 < (time_left % 60) < 60:
+            elif 55 < (time_left % 60) < 60 and time_left > 0:
                 print(f"Draw display with {(time_left // 60) + 1} bars")
                 dh.draw_bars(tft, (time_left // 60) + 1)
                 time.sleep(5)
