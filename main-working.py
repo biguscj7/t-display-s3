@@ -42,7 +42,7 @@ def update_ntptime(t):
         print("Attempted ntp update")
     except OSError as e:
         print(f"Time update error: {e}")  # add to display
-        quick_display(("Failed time update", e), 1.0)
+        quick_display(("Failed time update", e), 1.0, color=ORANGE)
 
 
 def current_epoch():
@@ -154,7 +154,7 @@ while True:
             print("----------Error checking reservation--------------")
             print(f"Server code: {code}")
             print(f"Server text: {payload}")
-            quick_display((code, payload), 1.0, ORANGE)
+            quick_display((code, payload), 1.0, color=ORANGE)
 
     # TODO: Add checking within loop to break out if reservation is extended (not needed now)
     if active_reservation and res_end - current_epoch() < 330:  # verify units and math associated with this 5.5 minutes
@@ -171,14 +171,13 @@ while True:
                     if payload["end"] == -1:
                         active_reservation = False
                         print("Blanking and deinit display.")
-                        close_out_display()
                         red_flag = False
                         break
                     else:
                         res_end = payload["end"]
                 elif code == 999:
                     print(f"Error in active loop call: {payload}")
-                    quick_display((code, payload), 1.0, ORANGE)
+                    quick_display((code, payload), 1.0, color=ORANGE)
             time_left = res_end - current_epoch()  # in seconds
 
             if time_left <= -30 and active_reservation:
@@ -194,3 +193,5 @@ while True:
                 print(f"Draw display with {(time_left // 60) + 1} bars")
                 dh.draw_bars(tft, (time_left // 60) + 1)
                 time.sleep(5)
+
+        close_out_display()
