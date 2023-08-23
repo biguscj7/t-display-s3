@@ -3,10 +3,12 @@ import ure
 import time
 
 NETWORK_PROFILES = 'data.txt'
+HOSTNAME = "Q1-timer-display"
 
 wlan_sta = network.WLAN(network.STA_IF)
 wlan_sta.active(True)
-wlan_sta.config(reconnects=2)
+time.sleep(3)
+wlan_sta.config(reconnects=2, dhcp_hostname=HOSTNAME)
 
 server_socket = None
 

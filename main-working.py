@@ -49,10 +49,14 @@ def current_epoch():
     return time.time() + NTP_TO_UNIX
 
 
-def quick_display(lines, font_scale, color):
+def quick_display(lines, hold_time=3, font_scale=2.0, color=QW_BLUE):
     tft.init()
     dh.draw_multiline_text(tft, script_font, lines, fill=color, start_scale=font_scale)
-    time.sleep(3)
+    time.sleep(hold_time)
+    close_out_display()
+
+
+def close_out_display():
     tft.fill(BLACK)
     tft.deinit()
 
@@ -72,10 +76,10 @@ else:
         pass  # hang on inability to connect
 
 # Update time
-if rtc.datetime()[0] < 2023:  # indicates unsuccessful update
+if time.gmtime()[0] < 2023:  # indicates unsuccessful update
     while True:
         update_ntptime("")
-        if rtc.datetime()[0] >= 2023:
+        if time.gmtime()[0] < 2023:
             break
         time.sleep(10)
 
@@ -99,7 +103,6 @@ if code == 200:
     dh.draw_multiline_text(tft, script_font, (f"Unit name: {unit_name}",))
     print(f"Unit name: {unit_name}")
     time.sleep(5)
-    tft.fill(BLACK)
 else:
     while True:
         code, payload = server_tools.register_device()
@@ -108,12 +111,15 @@ else:
             dh.draw_multiline_text(tft, script_font, ("Registered as:", f"{wlan_sta.config('mac').hex()}"))
         elif code == 200:
             break
+        elif code == 999:
+            dh.draw_multiline_text(tft, script_font, ("Failed registration", "retrying...."))
+            gc.collect()
         else:
             dh.draw_multiline_text(tft, script_font, ("Please contact", "manufacturer"))
 
         time.sleep(30)
 
-tft.deinit()
+close_out_display()
 
 timer_ntp = Timer(0)
 timer_ntp.init(mode=Timer.PERIODIC, period=NTP_UPDATE_PERIOD, callback=update_ntptime)
@@ -165,8 +171,7 @@ while True:
                     if payload["end"] == -1:
                         active_reservation = False
                         print("Blanking and deinit display.")
-                        tft.fill(BLACK)
-                        tft.deinit()
+                        close_out_display()
                         red_flag = False
                         break
                     else:
