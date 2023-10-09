@@ -1,5 +1,4 @@
 import network
-import ure
 import time
 
 NETWORK_PROFILES = 'data.txt'

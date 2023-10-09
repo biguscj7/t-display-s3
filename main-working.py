@@ -29,7 +29,6 @@ RED = st7789.RED
 rtc = RTC()
 
 tft = tft_config.config(1)
-
 tft.init()
 tft.offset(1, 35)  # offset for config 1
 
@@ -42,7 +41,7 @@ def update_ntptime(t):
         print("Attempted ntp update")
     except OSError as e:
         print(f"Time update error: {e}")  # add to display
-        quick_display(("Failed time update", e), 1.0, color=ORANGE)
+        #quick_display(("Failed time update", str(e)), 1.0, color=ORANGE)
 
 
 def current_epoch():
@@ -57,7 +56,7 @@ def quick_display(lines, hold_time=3, font_scale=2.0, color=QW_BLUE):
 
 
 def close_out_display():
-    tft.fill(BLACK)
+    dh.draw_multiline_text(tft, script_font, ("Welcome to the", "Quiet Workplace"), fill=QW_BLUE, start_scale=1.75)
     tft.deinit()
 
 
@@ -129,8 +128,6 @@ last_check = 0
 res_end = -1  # set to
 active_reservation = False
 
-red_flag = False
-
 while True:
     _, _, _, hr, mins, sec, _, _ = time.gmtime()  # (2023, 8, 21, 18, 42, 41, 0, 233)
 
@@ -159,6 +156,7 @@ while True:
     # TODO: Add checking within loop to break out if reservation is extended (not needed now)
     if active_reservation and res_end - current_epoch() < 330:  # verify units and math associated with this 5.5 minutes
         gc.collect()
+        red_flag = False
         tft.init()
         print("Entering active res loop")
 
@@ -170,8 +168,8 @@ while True:
                 if code == 200:
                     if payload["end"] == -1:
                         active_reservation = False
-                        print("Blanking and deinit display.")
                         red_flag = False
+                        print("Blanking and deinit display.")
                         break
                     else:
                         res_end = payload["end"]

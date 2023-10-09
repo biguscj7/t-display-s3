@@ -1,2 +1,5 @@
 ./Older stuff
 .python-version
+*.sh
+data/mac.txt
+data.txt
