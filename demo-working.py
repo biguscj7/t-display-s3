@@ -17,44 +17,41 @@ WHITE = st7789.WHITE
 RED = st7789.RED
 
 tft = tft_config.config(1)
-tft.init()
 tft.offset(1, 35)  # offset for config 1
 
-tft.fill(QW_BLUE)
+
+def display_init_deinit(func):
+    def wrapper(*args, **kwargs):
+        tft.init()
+        func(*args, **kwargs)
+        tft.deinit()
+
+    return wrapper
 
 
+@display_init_deinit
 def quick_display(lines, hold_time=3, font_scale=2.0, color=QW_BLUE):
-    tft.init()
     dh.draw_multiline_text(tft, script_font, lines, fill=color, start_scale=font_scale)
     time.sleep(hold_time)
-    close_out_display()
-
-
-def close_out_display():
     tft.fill(BLACK)
-    tft.deinit()
 
 
+@display_init_deinit
 def set_display(lines, font_scale=2.0, color=QW_BLUE):
-    tft.init()
     dh.draw_multiline_text(tft, script_font, lines, fill=color, start_scale=font_scale)
-    tft.deinit()
 
-
-close_out_display()
 
 set_display(("Welcome to the", "Quiet Workplace"), font_scale=1.75)
 
 while True:
     if button.value() == 0:
+        tft.init()
         print("Starting display loop")
 
         for i in (5, 4, 3, 2, 1):
-            tft.init()
             dh.draw_bars(tft, i)
             print(f"Drawing {i} bars")
             time.sleep(0.5)
-            tft.deinit()
 
         print("Filling blue")
         quick_display(("", ""), 5)
@@ -64,5 +61,4 @@ while True:
 
         set_display(("Welcome to the", "Quiet Workplace"), font_scale=1.75)
 
-
-
+        tft.deinit()

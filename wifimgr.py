@@ -2,7 +2,7 @@ import network
 import time
 
 NETWORK_PROFILES = 'data.txt'
-HOSTNAME = "Q6-timer-display"
+HOSTNAME = "Q1-timer-display"
 
 wlan_sta = network.WLAN(network.STA_IF)
 wlan_sta.active(True)

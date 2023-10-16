@@ -1,4 +1,3 @@
-import network
 import mytime as ntptime
 from machine import RTC, Timer, reset
 import wifimgr
@@ -29,7 +28,7 @@ RED = st7789.RED
 rtc = RTC()
 
 tft = tft_config.config(1)
-tft.init()
+tft.init()  # init for boot sequence
 tft.offset(1, 35)  # offset for config 1
 
 tft.fill(QW_BLUE)
@@ -41,23 +40,31 @@ def update_ntptime(t):
         print("Attempted ntp update")
     except OSError as e:
         print(f"Time update error: {e}")  # add to display
-        #quick_display(("Failed time update", str(e)), 1.0, color=ORANGE)
+        # quick_display(("Failed time update", str(e)), 1.0, color=ORANGE)
 
 
 def current_epoch():
     return time.time() + NTP_TO_UNIX
 
 
+def display_init_deinit(func):
+    def wrapper(*args, **kwargs):
+        tft.init()
+        func(*args, **kwargs)
+        tft.deinit()
+
+    return wrapper
+
+
+@display_init_deinit
 def quick_display(lines, hold_time=3, font_scale=2.0, color=QW_BLUE):
-    tft.init()
     dh.draw_multiline_text(tft, script_font, lines, fill=color, start_scale=font_scale)
     time.sleep(hold_time)
-    close_out_display()
+    welcome_display()
 
 
-def close_out_display():
+def welcome_display():
     dh.draw_multiline_text(tft, script_font, ("Welcome to the", "Quiet Workplace"), fill=QW_BLUE, start_scale=1.75)
-    tft.deinit()
 
 
 # Config wifi
@@ -118,7 +125,8 @@ else:
 
         time.sleep(30)
 
-close_out_display()
+welcome_display()
+tft.deinit()  # deinit after boot sequence
 
 timer_ntp = Timer(0)
 timer_ntp.init(mode=Timer.PERIODIC, period=NTP_UPDATE_PERIOD, callback=update_ntptime)
@@ -139,6 +147,10 @@ while True:
     if (mins in RESERVATION_CHECK_MINUTES and time.ticks_diff(time.ticks_ms(),
                                                               last_check) > RESERVATION_CHECK_LOCKOUT) or last_check == 0:
         print(f"Hours: {hr}\nMinutes:{mins}")
+        if wifimgr.get_connection() is None:
+            print("No wifi connection")
+            quick_display(("No wifi", "connection"), 3.0, color=ORANGE)
+
         code, payload = server_tools.check_reservation()
         if code == 200:
             last_check = time.ticks_ms()
@@ -154,16 +166,20 @@ while True:
             quick_display((code, payload), 1.0, color=ORANGE)
 
     # TODO: Add checking within loop to break out if reservation is extended (not needed now)
-    if active_reservation and res_end - current_epoch() < 330:  # verify units and math associated with this 5.5 minutes
+    if active_reservation and res_end - current_epoch() < 330:  # 5.5 minutes
         gc.collect()
         red_flag = False
-        tft.init()
+        need_init = True
         print("Entering active res loop")
 
         # Update display inside for 5.5 minutes remaining
         while True:
             if (44 < (time_left % 60) < 46) or (29 < (time_left % 60) < 31) or (14 < (time_left % 60) < 16):
                 print("Pinging server on the 15 second interval.")
+                if wifimgr.get_connection() is None:
+                    print("No wifi connection")
+                    quick_display(("No wifi", "connection"), 3.0, color=ORANGE)
+
                 code, payload = server_tools.check_reservation()
                 if code == 200:
                     if payload["end"] == -1:
@@ -176,20 +192,30 @@ while True:
                 elif code == 999:
                     print(f"Error in active loop call: {payload}")
                     quick_display((code, payload), 1.0, color=ORANGE)
-            time_left = res_end - current_epoch()  # in seconds
+                time_left = res_end - current_epoch()  # in seconds
 
             if time_left <= -30 and active_reservation:
                 if not red_flag:
                     print("Draw red screen.")
+                    if need_init:
+                        tft.init()
+                        need_init = False
                     dh.draw_multiline_text(tft, script_font, ("Please", "Checkout"), fill=RED)
                 red_flag = True
             elif -30 < time_left <= 0:
                 print("Buffer of 30 seconds before red flash")
+                if need_init:
+                    tft.init()
+                    need_init = False
                 tft.fill(QW_BLUE)
                 time.sleep(5)
             elif 55 < (time_left % 60) < 60 and time_left > 0:
                 print(f"Draw display with {(time_left // 60) + 1} bars")
+                if need_init:
+                    tft.init()
+                    need_init = False
                 dh.draw_bars(tft, (time_left // 60) + 1)
                 time.sleep(5)
 
-        close_out_display()
+        welcome_display()
+        tft.deinit()
