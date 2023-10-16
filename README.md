@@ -15,6 +15,9 @@ status of an individual QW Workspace.
 * [Lilygo T-Display-S3 hardware](https://www.lilygo.cc/products/t-display-s3?variant=42284559827125) 
   * Not soldered / non-touch version
 
+* Future use: https://github.com/russhughes/s3lcd
+  * This is a micropython driver for the LCD display on the T-Display-S3 board, but it is not yet complete.
+
 ### Installing
 
 * Use esptool.py to install firmware to board
