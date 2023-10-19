@@ -18,6 +18,10 @@ status of an individual QW Workspace.
 * Future use: https://github.com/russhughes/s3lcd
   * This is a micropython driver for the LCD display on the T-Display-S3 board, but it is not yet complete.
 
+* Configuration / firmware loading
+  * ampy
+  * esptool
+
 ### Installing
 
 * Use esptool.py to install firmware to board
@@ -26,12 +30,23 @@ status of an individual QW Workspace.
 esptool.py --chip esp32s3 --port /dev/<PORT> erase_flash
 ```
 ```
-esptool.py --chip esp32s3 --port /dev/<PORT> write_flash -z 0x1000 firmware.bin
+esptool.py --chip esp32s3 --port /dev/<PORT> write_flash -z 0 firmware.bin
 ```
 
 ### Executing program
 
 Configure data.txt with wifi credentials for desired networks
+
+Scripts in the 'tools' folder allow easy movement of required files onto the
+units. They are bash scripts and presume a UNIX environment where the device 
+registers as "/dev/tty.usbmodem1234561".
+
+Example:
+```
+bash ampy_swap.sh
+```
+This will copy all the required files to the device. Ensure wifi credentials have been 
+appropriately configured in data.txt.
 
 Coordinate registration of device with Adam Smith to associate specific display with specific QW Workspace
 * Devices are registered by associated their MAC address with a specific unit on the QW reservation app server.
