@@ -8,7 +8,8 @@ import gc
 
 gc.collect()
 
-button = machine.Pin(14, machine.Pin.IN, machine.Pin.PULL_UP)
+button14 = machine.Pin(14, machine.Pin.IN, machine.Pin.PULL_UP)
+button0 = machine.Pin(0, machine.Pin.IN, machine.Pin.PULL_UP)
 
 QW_BLUE = st7789.color565(48, 89, 151)
 ORANGE = st7789.color565(255, 109, 10)
@@ -44,7 +45,7 @@ def set_display(lines, font_scale=2.0, color=QW_BLUE):
 set_display(("Welcome to the", "Quiet Workplace"), font_scale=1.75)
 
 while True:
-    if button.value() == 0:
+    if button14.value() == 0 or button0.value() == 0:
         tft.init()
         print("Starting display loop")
 
@@ -52,6 +53,8 @@ while True:
             dh.draw_bars(tft, i)
             print(f"Drawing {i} bars")
             time.sleep(0.5)
+
+        tft.deinit()
 
         print("Filling blue")
         quick_display(("", ""), 5)

@@ -192,7 +192,7 @@ while True:
                 elif code == 999:
                     print(f"Error in active loop call: {payload}")
                     quick_display((code, payload), 1.0, color=ORANGE)
-                time_left = res_end - current_epoch()  # in seconds
+            time_left = res_end - current_epoch()  # in seconds
 
             if time_left <= -30 and active_reservation:
                 if not red_flag:
